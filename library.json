@@ -1,12 +1,12 @@
 {
-  "name": "TinyGPSPlus",
+  "name": "gps-nmea",
   "version": "1.1.0",
-  "keywords": "gps,NMEA",
-  "description": "A tiny, customizable Arduino NMEA parsing library",
+  "keywords": "gps, NMEA, driver, sensor",
+  "description": "Portable, multi-instance driver for NMEA GPS receivers",
   "repository":
   {
     "type": "git",
-    "url": "https://github.com/mikalhart/TinyGPSPlus.git"
+    "url": "https://github.com/johnmgreenwell/gps-nmea"
   },
   "authors":
   [
@@ -14,9 +14,19 @@
        "name": "Mikal Hart",
        "email": "mikal@arduniana.org",
        "url": "http://arduiniana.org",
+       "maintainer": false
+    },
+    {
+       "name": "John Greenwell",
        "maintainer": true
     }
   ],
+  "license": "GPL-2.1",
   "frameworks": "arduino",
-  "platforms": "*"
+  "platforms": "*",
+  "build": {
+        "flags": [
+        "-I../../include"
+        ]
+    }
 }
