@@ -6,6 +6,8 @@ Location precision improvements suggested by Wayne Holder.
 Copyright (C) 2008-2024 Mikal Hart
 All rights reserved.
 
+Modifed to support custom hardware abstraction layer, John Greenwell, 2025
+
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
@@ -23,12 +25,15 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
 
-#ifndef __TinyGPSPlus_h
-#define __TinyGPSPlus_h
+#ifndef __NMEA_h
+#define __NMEA_h
 
 #include <inttypes.h>
-#include "Arduino.h"
+#include "hal.h"
 #include <limits.h>
+
+namespace PeripheralIO
+{
 
 #define _GPS_VERSION "1.1.0" // software version of this library
 #define _GPS_MPH_PER_KNOT 1.15077945
@@ -52,14 +57,14 @@ public:
 
 struct TinyGPSLocation
 {
-   friend class TinyGPSPlus;
+   friend class NMEA;
 public:
    enum Quality { Invalid = '0', GPS = '1', DGPS = '2', PPS = '3', RTK = '4', FloatRTK = '5', Estimated = '6', Manual = '7', Simulated = '8' };
    enum Mode { N = 'N', A = 'A', D = 'D', E = 'E'};
 
    bool isValid() const    { return valid; }
    bool isUpdated() const  { return updated; }
-   uint32_t age() const    { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const    { return valid ? HAL::millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
    const RawDegrees &rawLat()     { updated = false; return rawLatData; }
    const RawDegrees &rawLng()     { updated = false; return rawLngData; }
    double lat();
@@ -83,11 +88,11 @@ private:
 
 struct TinyGPSDate
 {
-   friend class TinyGPSPlus;
+   friend class NMEA;
 public:
    bool isValid() const       { return valid; }
    bool isUpdated() const     { return updated; }
-   uint32_t age() const       { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const       { return valid ? HAL::millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
 
    uint32_t value()           { updated = false; return date; }
    uint16_t year();
@@ -107,11 +112,11 @@ private:
 
 struct TinyGPSTime
 {
-   friend class TinyGPSPlus;
+   friend class NMEA;
 public:
    bool isValid() const       { return valid; }
    bool isUpdated() const     { return updated; }
-   uint32_t age() const       { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const       { return valid ? HAL::millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
 
    uint32_t value()           { updated = false; return time; }
    uint8_t hour();
@@ -132,11 +137,11 @@ private:
 
 struct TinyGPSDecimal
 {
-   friend class TinyGPSPlus;
+   friend class NMEA;
 public:
    bool isValid() const    { return valid; }
    bool isUpdated() const  { return updated; }
-   uint32_t age() const    { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const    { return valid ? HAL::millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
    int32_t value()         { updated = false; return val; }
 
    TinyGPSDecimal() : valid(false), updated(false), val(0)
@@ -152,11 +157,11 @@ private:
 
 struct TinyGPSInteger
 {
-   friend class TinyGPSPlus;
+   friend class NMEA;
 public:
    bool isValid() const    { return valid; }
    bool isUpdated() const  { return updated; }
-   uint32_t age() const    { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const    { return valid ? HAL::millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
    uint32_t value()        { updated = false; return val; }
 
    TinyGPSInteger() : valid(false), updated(false), val(0)
@@ -196,17 +201,17 @@ struct TinyGPSHDOP : TinyGPSDecimal
    double hdop() { return value() / 100.0; }
 };
 
-class TinyGPSPlus;
+class NMEA;
 class TinyGPSCustom
 {
 public:
    TinyGPSCustom() {};
-   TinyGPSCustom(TinyGPSPlus &gps, const char *sentenceName, int termNumber);
-   void begin(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber);
+   TinyGPSCustom(NMEA &gps, const char *sentenceName, int termNumber);
+   void begin(NMEA &gps, const char *_sentenceName, int _termNumber);
 
    bool isUpdated() const  { return updated; }
    bool isValid() const    { return valid; }
-   uint32_t age() const    { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const    { return valid ? HAL::millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
    const char *value()     { updated = false; return buffer; }
 
 private:
@@ -219,16 +224,16 @@ private:
    bool valid, updated;
    const char *sentenceName;
    int termNumber;
-   friend class TinyGPSPlus;
+   friend class NMEA;
    TinyGPSCustom *next;
 };
 
-class TinyGPSPlus
+class NMEA
 {
 public:
-  TinyGPSPlus();
+  NMEA();
   bool encode(char c); // process one character received from GPS
-  TinyGPSPlus &operator << (char c) {encode(c); return *this;}
+  NMEA &operator << (char c) {encode(c); return *this;}
 
   TinyGPSLocation location;
   TinyGPSDate date;
@@ -282,4 +287,6 @@ private:
   bool endOfTermHandler();
 };
 
-#endif // def(__TinyGPSPlus_h)
+} // namespace PeripheralIO
+
+#endif // def(__NMEA_h)

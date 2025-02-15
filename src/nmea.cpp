@@ -6,6 +6,8 @@ Location precision improvements suggested by Wayne Holder.
 Copyright (C) 2008-2024 Mikal Hart
 All rights reserved.
 
+Modifed to support custom hardware abstraction layer, John Greenwell, 2025
+
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
@@ -21,11 +23,14 @@ License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "TinyGPS++.h"
+#include "nmea.h"
 
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+
+namespace PeripheralIO
+{
 
 #define _RMCterm "RMC"
 #define _GGAterm "GGA"
@@ -43,7 +48,7 @@ unsigned long millis()
 }
 #endif
 
-TinyGPSPlus::TinyGPSPlus()
+NMEA::NMEA()
   :  parity(0)
   ,  isChecksumTerm(false)
   ,  curSentenceType(GPS_SENTENCE_OTHER)
@@ -64,7 +69,7 @@ TinyGPSPlus::TinyGPSPlus()
 // public methods
 //
 
-bool TinyGPSPlus::encode(char c)
+bool NMEA::encode(char c)
 {
   ++encodedCharCount;
 
@@ -111,7 +116,7 @@ bool TinyGPSPlus::encode(char c)
 //
 // internal utilities
 //
-int TinyGPSPlus::fromHex(char a)
+int NMEA::fromHex(char a)
 {
   if (a >= 'A' && a <= 'F')
     return a - 'A' + 10;
@@ -123,7 +128,7 @@ int TinyGPSPlus::fromHex(char a)
 
 // static
 // Parse a (potentially negative) number with up to 2 decimal digits -xxxx.yy
-int32_t TinyGPSPlus::parseDecimal(const char *term)
+int32_t NMEA::parseDecimal(const char *term)
 {
   bool negative = *term == '-';
   if (negative) ++term;
@@ -140,7 +145,7 @@ int32_t TinyGPSPlus::parseDecimal(const char *term)
 
 // static
 // Parse degrees in that funny NMEA format DDMM.MMMM
-void TinyGPSPlus::parseDegrees(const char *term, RawDegrees &deg)
+void NMEA::parseDegrees(const char *term, RawDegrees &deg)
 {
   uint32_t leftOfDecimal = (uint32_t)atol(term);
   uint16_t minutes = (uint16_t)(leftOfDecimal % 100);
@@ -167,7 +172,7 @@ void TinyGPSPlus::parseDegrees(const char *term, RawDegrees &deg)
 
 // Processes a just-completed term
 // Returns true if new sentence has just passed checksum test and is validated
-bool TinyGPSPlus::endOfTermHandler()
+bool NMEA::endOfTermHandler()
 {
   // If it's the checksum term, and the checksum checks out, commit
   if (isChecksumTerm)
@@ -297,7 +302,7 @@ bool TinyGPSPlus::endOfTermHandler()
 }
 
 /* static */
-double TinyGPSPlus::distanceBetween(double lat1, double long1, double lat2, double long2)
+double NMEA::distanceBetween(double lat1, double long1, double lat2, double long2)
 {
   // returns distance in meters between two positions, both specified
   // as signed decimal-degrees latitude and longitude. Uses great-circle
@@ -322,7 +327,7 @@ double TinyGPSPlus::distanceBetween(double lat1, double long1, double lat2, doub
   return delta * _GPS_EARTH_MEAN_RADIUS;
 }
 
-double TinyGPSPlus::courseTo(double lat1, double long1, double lat2, double long2)
+double NMEA::courseTo(double lat1, double long1, double lat2, double long2)
 {
   // returns course in degrees (North=0, West=270) from position 1 to position 2,
   // both specified as signed decimal-degrees latitude and longitude.
@@ -342,7 +347,7 @@ double TinyGPSPlus::courseTo(double lat1, double long1, double lat2, double long
   return degrees(a2);
 }
 
-const char *TinyGPSPlus::cardinal(double course)
+const char *NMEA::cardinal(double course)
 {
   static const char* directions[] = {"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"};
   int direction = (int)((course + 11.25f) / 22.5f);
@@ -355,18 +360,18 @@ void TinyGPSLocation::commit()
    rawLngData = rawNewLngData;
    fixQuality = newFixQuality;
    fixMode = newFixMode;
-   lastCommitTime = millis();
+   lastCommitTime = HAL::millis();
    valid = updated = true;
 }
 
 void TinyGPSLocation::setLatitude(const char *term)
 {
-   TinyGPSPlus::parseDegrees(term, rawNewLatData);
+   NMEA::parseDegrees(term, rawNewLatData);
 }
 
 void TinyGPSLocation::setLongitude(const char *term)
 {
-   TinyGPSPlus::parseDegrees(term, rawNewLngData);
+   NMEA::parseDegrees(term, rawNewLngData);
 }
 
 double TinyGPSLocation::lat()
@@ -386,20 +391,20 @@ double TinyGPSLocation::lng()
 void TinyGPSDate::commit()
 {
    date = newDate;
-   lastCommitTime = millis();
+   lastCommitTime = HAL::millis();
    valid = updated = true;
 }
 
 void TinyGPSTime::commit()
 {
    time = newTime;
-   lastCommitTime = millis();
+   lastCommitTime = HAL::millis();
    valid = updated = true;
 }
 
 void TinyGPSTime::setTime(const char *term)
 {
-   newTime = (uint32_t)TinyGPSPlus::parseDecimal(term);
+   newTime = (uint32_t)NMEA::parseDecimal(term);
 }
 
 void TinyGPSDate::setDate(const char *term)
@@ -453,19 +458,19 @@ uint8_t TinyGPSTime::centisecond()
 void TinyGPSDecimal::commit()
 {
    val = newval;
-   lastCommitTime = millis();
+   lastCommitTime = HAL::millis();
    valid = updated = true;
 }
 
 void TinyGPSDecimal::set(const char *term)
 {
-   newval = TinyGPSPlus::parseDecimal(term);
+   newval = NMEA::parseDecimal(term);
 }
 
 void TinyGPSInteger::commit()
 {
    val = newval;
-   lastCommitTime = millis();
+   lastCommitTime = HAL::millis();
    valid = updated = true;
 }
 
@@ -474,12 +479,12 @@ void TinyGPSInteger::set(const char *term)
    newval = atol(term);
 }
 
-TinyGPSCustom::TinyGPSCustom(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber)
+TinyGPSCustom::TinyGPSCustom(NMEA &gps, const char *_sentenceName, int _termNumber)
 {
    begin(gps, _sentenceName, _termNumber);
 }
 
-void TinyGPSCustom::begin(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber)
+void TinyGPSCustom::begin(NMEA &gps, const char *_sentenceName, int _termNumber)
 {
    lastCommitTime = 0;
    updated = valid = false;
@@ -495,7 +500,7 @@ void TinyGPSCustom::begin(TinyGPSPlus &gps, const char *_sentenceName, int _term
 void TinyGPSCustom::commit()
 {
    strcpy(this->buffer, this->stagingBuffer);
-   lastCommitTime = millis();
+   lastCommitTime = HAL::millis();
    valid = updated = true;
 }
 
@@ -504,7 +509,7 @@ void TinyGPSCustom::set(const char *term)
    strncpy(this->stagingBuffer, term, sizeof(this->stagingBuffer) - 1);
 }
 
-void TinyGPSPlus::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, int termNumber)
+void NMEA::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, int termNumber)
 {
    TinyGPSCustom **ppelt;
 
@@ -518,3 +523,5 @@ void TinyGPSPlus::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, in
    pElt->next = *ppelt;
    *ppelt = pElt;
 }
+
+} // namespace PeripheralIO
