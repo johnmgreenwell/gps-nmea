@@ -22,9 +22,6 @@ You should have received a copy of the GNU Lesser General Public
 License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-
-
-
 #ifndef __NMEA_h
 #define __NMEA_h
 
@@ -231,7 +228,8 @@ private:
 class NMEA
 {
 public:
-  NMEA();
+  NMEA(HAL::UART& uart);
+  bool encode(); // Self-process buffered data from serial stream
   bool encode(char c); // process one character received from GPS
   NMEA &operator << (char c) {encode(c); return *this;}
 
@@ -262,6 +260,7 @@ private:
   enum {GPS_SENTENCE_GGA, GPS_SENTENCE_RMC, GPS_SENTENCE_OTHER};
 
   // parsing state variables
+  HAL::UART& uart;
   uint8_t parity;
   bool isChecksumTerm;
   char term[_GPS_MAX_FIELD_SIZE];

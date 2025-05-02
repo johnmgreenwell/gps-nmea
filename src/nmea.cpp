@@ -48,8 +48,9 @@ unsigned long millis()
 }
 #endif
 
-NMEA::NMEA()
-  :  parity(0)
+NMEA::NMEA(HAL::UART& uart)
+  :  uart(uart)
+  ,  parity(0)
   ,  isChecksumTerm(false)
   ,  curSentenceType(GPS_SENTENCE_OTHER)
   ,  curTermNumber(0)
@@ -68,6 +69,14 @@ NMEA::NMEA()
 //
 // public methods
 //
+
+bool NMEA::encode()
+{
+  while (uart.available() > 0)
+    if (encode(uart.read()))
+      return true;
+  return false;
+}
 
 bool NMEA::encode(char c)
 {
